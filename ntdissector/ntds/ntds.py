@@ -1,7 +1,5 @@
 import logging
-from dissect.esedb.esedb import EseDB
-from dissect.esedb.record import Record
-from dissect.esedb.page import Page
+from dissect.database.ese import ESE, Record, Page
 from impacket.dcerpc.v5.samr import (
     USER_PROPERTIES,
     USER_PROPERTY,
@@ -49,7 +47,7 @@ class NTDS:
     def __init__(self, ntdsFile, options=None) -> None:
         self.__dt_records_count = -1
         self.__nfo = [ntdsFile, md5(b(ntdsFile)).hexdigest(), self.__dt_records_count]
-        self.__db = EseDB(open(ntdsFile, "rb"))
+        self.__db = ESE(open(ntdsFile, "rb"))
         self.__datatable = self.__db.table("datatable")
         self.__linktable = self.__db.table("link_table")
         self.__sdtable = self.__db.table("sd_table")
@@ -715,7 +713,7 @@ class NTDS:
         wid = mp.current_process().name.split("-")[1]
         results = dict()
         logging.debug(f"Worker-{wid} started ")
-        self.__db = EseDB(open(self.__nfo[0], "rb"))
+        self.__db = ESE(open(self.__nfo[0], "rb"))
         self.__datatable = self.__db.table("datatable")
         self.__linktable = self.__db.table("link_table")
         while True:
@@ -729,7 +727,7 @@ class NTDS:
                             outFile.write("\n")
                 break
             else:
-                node = Page(esedb=self.__db, num=pickled_record["page_num"], buf=pickled_record["page_buf"]).node(num=pickled_record["node_num"])
+                node = Page(db=self.__db, num=pickled_record["page_num"], buf=pickled_record["page_buf"]).node(num=pickled_record["node_num"])
                 record = Record(table=self.__datatable, node=node)
                 res_obj = self.__serializeRecord(record)
                 # logging.debug(res_obj)
