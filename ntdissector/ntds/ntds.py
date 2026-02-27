@@ -41,6 +41,13 @@ from ntdissector.utils.dpapi import BACKUP_KEY
 from ntdissector.utils.lapsv2 import LAPSv2
 
 
+def record_get(record, attr_name):
+    rec = record.get(attr_name)
+    if isinstance(rec, list) and len(rec) == 1:
+        return rec[0]
+
+    return rec
+
 class NTDS:
     defaultdir = f"{Path.home()}/.ntdissector"
 
@@ -260,21 +267,21 @@ class NTDS:
         logging.debug("Parsing the sdtable")
         for record in self.__sdtable.records():
             try:
-                self.securityDescriptors[str(record.get("sd_id"))] = record.get("sd_value")
+                self.securityDescriptors[str(record_get(record, "sd_id"))] = record_get(record, "sd_value")
             except Exception as e:
-                logging.error("Failed to parse SD of record with sd_id=%s - %s" % (record.get("sd_id"), repr(e)))
+                logging.error("Failed to parse SD of record with sd_id=%s - %s" % (record_get(record, "sd_id"), repr(e)))
 
         logging.debug("Parsing the link_table")
         for record in self.__linktable.records():
-            _b_DNT = str(record.get("backlink_DNT"))
+            _b_DNT = str(record_get(record, "backlink_DNT"))
             if _b_DNT not in self.links["to"]:
                 self.links["to"][_b_DNT] = []
-            self.links["to"][_b_DNT].append((record.get("link_DNT"), record.get("link_base"), record.get("link_deltime"), record.get("link_deactivetime"), record.get("link_data")))
+            self.links["to"][_b_DNT].append((record_get(record, "link_DNT"), record_get(record, "link_base"), record_get(record, "link_deltime"), record_get(record, "link_deactivetime"), record_get(record, "link_data")))
 
-            _l_DNT = str(record.get("link_DNT"))
+            _l_DNT = str(record_get(record, "link_DNT"))
             if _l_DNT not in self.links["from"]:
                 self.links["from"][_l_DNT] = []
-            self.links["from"][_l_DNT].append((record.get("backlink_DNT"), record.get("link_base"), record.get("link_deltime"), record.get("link_deactivetime"), record.get("link_data")))
+            self.links["from"][_l_DNT].append((record_get(record, "backlink_DNT"), record_get(record, "link_base"), record_get(record, "link_deltime"), record_get(record, "link_deactivetime"), record_get(record, "link_data")))
 
         logging.debug("Parsing the datatable")
         for record in self.__datatable.records():
@@ -285,19 +292,19 @@ class NTDS:
                 break
 
             elif OCLID_classSchema in self.__getObjectClass(record):
-                id = str(record.get(NAME_TO_INTERNAL["Governs-ID"]))
-                ldap_name = record.get(NAME_TO_INTERNAL["Attribute-Name-LDAP"])
-                cn_name = record.get(NAME_TO_INTERNAL["Attribute-Name-CN"])
+                id = str(record_get(record, NAME_TO_INTERNAL["Governs-ID"]))
+                ldap_name = record_get(record, NAME_TO_INTERNAL["Attribute-Name-LDAP"])
+                cn_name = record_get(record, NAME_TO_INTERNAL["Attribute-Name-CN"])
                 self.objectClassSchema["resolve"][id] = (cn_name, ldap_name)
                 self.objectClassSchema["ldap"][ldap_name] = id
                 self.objectClassSchema["cn"][cn_name] = id
 
             elif OCLID_attributeSchema in self.__getObjectClass(record):
-                attId = record.get(NAME_TO_INTERNAL["Attribute-ID"])
-                msdsId = record.get(NAME_TO_INTERNAL["msDS-IntId"])
-                ldap_name = record.get(NAME_TO_INTERNAL["Attribute-Name-LDAP"])
-                cn_name = record.get(NAME_TO_INTERNAL["Attribute-Name-CN"])
-                lid = record.get(NAME_TO_INTERNAL["Link-ID"])
+                attId = record_get(record, NAME_TO_INTERNAL["Attribute-ID"])
+                msdsId = record_get(record, NAME_TO_INTERNAL["msDS-IntId"])
+                ldap_name = record_get(record, NAME_TO_INTERNAL["Attribute-Name-LDAP"])
+                cn_name = record_get(record, NAME_TO_INTERNAL["Attribute-Name-CN"])
+                lid = record_get(record, NAME_TO_INTERNAL["Link-ID"])
 
                 if isinstance(lid, int):
                     self.attributeSchema["links"][str(lid)] = (cn_name, ldap_name)
@@ -313,22 +320,22 @@ class NTDS:
                         cn_name,
                     )
             elif not self.rawEncPekList and (
-                OCLID_domainDNS in self.__getObjectClass(record) and record.get(NAME_TO_INTERNAL["Pek-List"]) is not None
+                OCLID_domainDNS in self.__getObjectClass(record) and record_get(record, NAME_TO_INTERNAL["Pek-List"]) is not None
             ):
                 self.__isADAM = False
-                self.rawEncPekList = hexlify(record.get(NAME_TO_INTERNAL["Pek-List"])).decode()
+                self.rawEncPekList = hexlify(record_get(record, NAME_TO_INTERNAL["Pek-List"])).decode()
                 logging.debug("Found Pek-List")
-            elif [OCLID_top] == self.__getObjectClass(record) and record.get(NAME_TO_INTERNAL["Pek-List"]) is not None:
+            elif [OCLID_top] == self.__getObjectClass(record) and record_get(record, NAME_TO_INTERNAL["Pek-List"]) is not None:
                 self.__isADAM = True
-                self.__rootPekList = record.get(NAME_TO_INTERNAL["Pek-List"])
+                self.__rootPekList = record_get(record, NAME_TO_INTERNAL["Pek-List"])
                 logging.debug("ADAM_NTDS : Found rootPekList (len:%s)" % len(self.__rootPekList))
-            elif OCLID_dMD in self.__getObjectClass(record) and record.get(NAME_TO_INTERNAL["Pek-List"]) is not None:
+            elif OCLID_dMD in self.__getObjectClass(record) and record_get(record, NAME_TO_INTERNAL["Pek-List"]) is not None:
                 self.__isADAM = True
-                self.__schemaPekList = record.get(NAME_TO_INTERNAL["Pek-List"])
+                self.__schemaPekList = record_get(record, NAME_TO_INTERNAL["Pek-List"])
                 logging.debug("ADAM_NTDS : Found schemaPekList (len:%s)" % len(self.__schemaPekList))
-            elif OCLID_configuration in self.__getObjectClass(record) and record.get(NAME_TO_INTERNAL["Pek-List"]) is not None:
+            elif OCLID_configuration in self.__getObjectClass(record) and record_get(record, NAME_TO_INTERNAL["Pek-List"]) is not None:
                 self.__isADAM = True
-                self.rawEncPekList = hexlify(record.get(NAME_TO_INTERNAL["Pek-List"])).decode()
+                self.rawEncPekList = hexlify(record_get(record, NAME_TO_INTERNAL["Pek-List"])).decode()
                 logging.debug("ADAM_NTDS : Found Pek-List")
             elif OCLID_KDSProvRootKey in self.__getObjectClass(record):
                 self.__KDSRootKeys.append(self.__serializeRecord(record))
@@ -339,8 +346,8 @@ class NTDS:
         def __buildDNs(iterator, remaining=list()):
             for record in iterator:
                 # ID to DN
-                if record.get(NAME_TO_INTERNAL["RDN"]) is not None and record.get("PDNT_col"):
-                    parent_dn = self.dnt_to_dn.get(str(record.get("PDNT_col")), None)
+                if record_get(record, NAME_TO_INTERNAL["RDN"]) is not None and record_get(record, "PDNT_col"):
+                    parent_dn = self.dnt_to_dn.get(str(record_get(record, "PDNT_col")), None)
 
                     # Keep it for the second round
                     if parent_dn is None:
@@ -348,12 +355,12 @@ class NTDS:
                         pass
 
                     rdn_type = self.attributeSchema["resolve"].get(
-                        f"ATTm{record.get('RDNtyp_col')}",
+                        f"ATTm{record_get(record, 'RDNtyp_col')}",
                         ["Common-Name", "cn"],
                     )[self.ldap_naming]
 
-                    tdn = f"{rdn_type.upper()}={str(record.get(NAME_TO_INTERNAL['RDN']))}"
-                    self.dnt_to_dn[str(record.get("DNT_col"))] = ",".join([tdn] if parent_dn is None else [tdn, parent_dn])
+                    tdn = f"{rdn_type.upper()}={str(record_get(record, NAME_TO_INTERNAL['RDN']))}"
+                    self.dnt_to_dn[str(record_get(record, "DNT_col"))] = ",".join([tdn] if parent_dn is None else [tdn, parent_dn])
 
         remaining = list()
         __buildDNs(self.__datatable.records(), remaining)
@@ -684,10 +691,10 @@ class NTDS:
 
     def __getObjectClass(self, record: Record) -> str or list:
         try:
-            rOC = record.get(self.attributeSchema["ldap"]["objectClass"])
+            rOC = record_get(record, self.attributeSchema["ldap"]["objectClass"])
         except KeyError:
             # fallback when the schema isn't built
-            rOC = record.get(NAME_TO_INTERNAL["Object-Class"])
+            rOC = record_get(record, NAME_TO_INTERNAL["Object-Class"])
 
         if isinstance(rOC, list):
             return rOC
@@ -771,7 +778,7 @@ class NTDS:
                 total_records += 1
                 if limit is not None and matches >= limit:
                     break
-                if record.get(NAME_TO_INTERNAL["isDeleted"], 0) == 1 and self.__skipDel:
+                if record_get(record, NAME_TO_INTERNAL["isDeleted"]) == 1 and self.__skipDel:
                     pbar.update()
                     continue
                 cName = dict(enumerate(self.__getObjectClassResolved(record))).get(0, -1)
